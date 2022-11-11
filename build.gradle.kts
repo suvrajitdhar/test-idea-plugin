@@ -35,11 +35,13 @@ kotlin {
 // Configure Gradle IntelliJ Plugin - read more: https://plugins.jetbrains.com/docs/intellij/tools-gradle-intellij-plugin.html
 intellij {
     pluginName.set(properties("pluginName"))
-    version.set(properties("platformVersion"))
+//    version.set(properties("platformVersion"))
     type.set(properties("platformType"))
 
     // Plugin Dependencies. Uses `platformPlugins` property from the gradle.properties file.
     plugins.set(properties("platformPlugins").split(',').map(String::trim).filter(String::isNotEmpty))
+
+    localPath.set("/Applications/Android Studio.app/Contents")
 }
 
 // Configure Gradle Changelog Plugin - read more: https://github.com/JetBrains/gradle-changelog-plugin
@@ -113,6 +115,9 @@ tasks {
 }
 dependencies {
     implementation(kotlin("stdlib-jdk8"))
+
+    implementation("org.freemarker:freemarker:2.3.31")
+
 }
 val compileKotlin: KotlinCompile by tasks
 compileKotlin.kotlinOptions {

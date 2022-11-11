@@ -4,6 +4,8 @@
     <name>TestIdeaPlugin</name>
     <vendor>suvrajitdhar</vendor>
 
+    <category>Android</category>
+
     <depends>com.intellij.modules.platform</depends>
     <depends>org.jetbrains.compose.intellij.platform</depends>
     <depends>org.jetbrains.kotlin</depends>
@@ -16,9 +18,19 @@
                 implementationClass="com.github.suvrajitdhar.testideaplugin.module.DemoModuleType"/>
     </extensions>
 
-    <applicationListeners>
+    <actions>
+        <group id="TestIdeaPlugin.DemoAction1" text="My Idea Demo Action" description="About demo action">
+            <add-to-group group-id="JavaNewProjectOrModuleGroup" relative-to-action="NewModule" anchor="before"/>
+            <action class="com.github.suvrajitdhar.testideaplugin.actions.DemoAction" id="TestIdeaPlugin.Act.DemoAction1" text="New Demo Module"/>
+        </group>
+        <group id="TestIdeaPlugin.DemoAction2" text="My Idea Demo Action" description="About demo action">
+            <add-to-group group-id="ProjectViewPopupMenu" relative-to-action="WeighingNewGroup" anchor="before"/>
+            <action class="com.github.suvrajitdhar.testideaplugin.actions.DemoAction" id="TestIdeaPlugin.Act.DemoAction2" text="New Demo Module"/>
+        </group>
+    </actions>
+<!--    <applicationListeners>-->
 <!--        <listener class="com.github.suvrajitdhar.testideaplugin.listeners.MyProjectManagerListener"-->
 <!--                  topic="com.intellij.openapi.project.ProjectManagerListener"/>-->
-    </applicationListeners>
+<!--    </applicationListeners>-->
 
 </idea-plugin>
