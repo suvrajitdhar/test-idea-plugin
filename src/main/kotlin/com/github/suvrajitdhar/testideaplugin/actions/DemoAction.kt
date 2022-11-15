@@ -10,13 +10,15 @@ import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.CommonDataKeys
 import com.intellij.openapi.actionSystem.LangDataKeys
 import com.intellij.openapi.command.WriteCommandAction
-import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.InputValidator
 import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.util.NlsSafe
+import com.intellij.openapi.util.component1
+import com.intellij.openapi.util.component2
 import com.intellij.psi.PsiDirectory
+import org.apache.commons.text.CaseUtils
 import java.nio.charset.Charset
 import java.nio.file.Files
 import java.nio.file.Paths
@@ -24,6 +26,8 @@ import java.nio.file.StandardOpenOption
 import java.util.*
 
 open class DemoAction : AnAction() {
+    private lateinit var defaultProperties: Properties
+
     override fun actionPerformed(e: AnActionEvent) {
 
         val dataContext = e.dataContext
@@ -31,67 +35,74 @@ open class DemoAction : AnAction() {
         val project: Project = CommonDataKeys.PROJECT.getData(dataContext) ?: return
         val dir = view.orChooseDirectory ?: return
 
-        Messages.showEditableChooseDialog(
-            "Choose a project type !!",
-            "Hello",
-            AllIcons.Icons.Ide.NextStepInverted,
-            arrayOf("Standard", "Embedded"),
-            "Standard",
+//        Messages.showChooseDialog(
+//            project,
+//            "Choose a project type !!",
+//            "Hello",
+//            AllIcons.Icons.Ide.NextStepInverted,
+//            arrayOf("Standard", "Embedded"),
+//            "Standard"
+//        )
+
+        val (moduleName, isHiltIncluded) = Messages.showInputDialogWithCheckBox(
+            "Please enter the Module name",
+            "Input Module Name",
+            "Should include Hilt as the Dependency Injection Framework?",
+            true,
+            true,
+            AllIcons.Ide.Gift,
+            null,
             object : InputValidator {
-                override fun checkInput(input: String?): Boolean {
-                    logger<DemoAction>().info("Logging $input")
-                    return true
-                }
-
-                override fun canClose(p0: String?): Boolean {
-                    return true
-                }
-
+                override fun checkInput(inputString: String?) = !inputString.isNullOrEmpty()
+                override fun canClose(inputString: String?) = true
             }
-        )?.let {
-            Messages.showInputDialog(
+        )
+
+        Messages.showInputDialog(
+            project,
+            "Please enter the package name",
+            "Input Package Name",
+            AllIcons.Ide.Gift,
+            null,
+            object : InputValidator {
+                override fun checkInput(inputString: String?) = !inputString.isNullOrEmpty()
+                override fun canClose(inputString: String?) = true
+            }
+        )?.let { pkg ->
+            val namespace = Messages.showInputDialog(
                 project,
-                "Please enter the Module name",
-                "Input Module Name",
-                AllIcons.Ide.Gift
-            )?.let { moduleName ->
-                val namespace = Messages.showInputDialog(
-                    project,
-                    "Please enter the Module namespace. If left blank it will take the module name instead.",
-                    "Input Module Namespace",
-                    AllIcons.Ide.Gift
-                ) ?: moduleName
+                "Please enter the Module namespace. If left blank it will take the module name instead.",
+                "Input Module Namespace",
+                AllIcons.Ide.Gift,
+                moduleName,
+                null
+            ) ?: moduleName
 
-                Messages.showInputDialog(
-                    project,
-                    "Please enter the package",
-                    "Input Package",
-                    AllIcons.Ide.Gift
-                )?.let { pkg ->
+            val name = CaseUtils.toCamelCase(moduleName, true, '-', '_')
+            defaultProperties = Properties().apply {
+                setProperty(FileTemplate.ATTRIBUTE_PACKAGE_NAME, pkg)
+                setProperty("MyLib", name)
+                setProperty("myLib", moduleName)
+                setProperty("namespace", namespace)
+            }
 
-                    val isIncludeHilt = Messages.showCheckboxOkCancelDialog(
-                        "Please select if you want to use Hilt to inject and resolve dependencies.",
-                        "Hilt Dependency",
-                        "Include Hilt ?",
-                        true,
-                        0,
-                        0,
-                        AllIcons.Ide.Gift
-                    )
-
-                    WriteCommandAction.runWriteCommandAction(project) {
-                        createModule(project, moduleName, dir, pkg)
-                    }
-                }
+            WriteCommandAction.runWriteCommandAction(project) {
+                createModule(project, moduleName, dir, pkg)
             }
         }
     }
 
-    private fun createModule(project: Project, moduleName: @NlsSafe String, dir: PsiDirectory, pkg: @NlsSafe String) {
+    private fun createModule(
+        project: Project,
+        moduleName: @NlsSafe String,
+        dir: PsiDirectory,
+        pkg: @NlsSafe String
+    ) {
         try {
             val absolutePath = "${project.basePath}/$moduleName"
 
-            val props = Properties().apply {
+
+            val props = Properties(defaultProperties).apply {
                 setProperty(FileTemplate.ATTRIBUTE_FILE_PATH, absolutePath)
             }
             val moduleDir = dir.createSubdirectory(moduleName)
@@ -105,20 +116,21 @@ open class DemoAction : AnAction() {
             )
 
             moduleDir.createSubdirectory("libs")
-            val srcDir = moduleDir.createSubdirectory("src").apply {
+            moduleDir.createSubdirectory("src").apply {
                 createSubdirectory("androidTest").apply {
-                    createPkgStructure(pkg, createSubdirectory("java"))
+//                    createPkgStructure(pkg, createSubdirectory("java"))
                     createPkgStructure(pkg, createSubdirectory("kotlin"))
                 }
                 createSubdirectory("test").apply {
-                    createPkgStructure(pkg, createSubdirectory("java"))
+//                    createPkgStructure(pkg, createSubdirectory("java"))
                     createPkgStructure(pkg, createSubdirectory("kotlin"))
                 }
                 createSubdirectory("main").apply {
-                    createPkgStructure(pkg, createSubdirectory("java"))
-                    createPkgStructure(pkg, createSubdirectory("kotlin"))
-                    createResDirStructure(this)
-                    TODO("Create AndroidManifest file from Template")
+//                    createPkgStructure(pkg, createSubdirectory("java"))
+                    val childDir = createPkgStructure(pkg, createSubdirectory("kotlin"))
+                    createResDirStructure(this, moduleName, pkg)
+                    createAndroidManifestFromTemplate(project, moduleName, this, pkg)
+                    createActivityCodeFromTemplate(project, moduleName, childDir, pkg)
                 }
             }
 
@@ -153,23 +165,60 @@ open class DemoAction : AnAction() {
         }
     }
 
-    private fun createResDirStructure(psiDirectory: PsiDirectory) {
+    private fun createActivityCodeFromTemplate(project: Project, moduleName: @NlsSafe String, dir: PsiDirectory, pkg: @NlsSafe String) {
+        val template = FileTemplateManager.getInstance(project).getTemplate("MyLibActivity.kt")
+        val name = defaultProperties.getProperty("MyLib")
+        FileTemplateUtil.createFromTemplate(
+            /* template = */ template,
+            /* fileName = */ "${name}Activity",
+            /* props = */ defaultProperties,
+            /* directory = */ dir
+        )
+    }
+
+    private fun createActivityLayoutFromTemplate(project: Project, moduleName: @NlsSafe String, dir: PsiDirectory, pkg: @NlsSafe String) {
+        val template = FileTemplateManager.getInstance(project).getTemplate("activity_mylib.xml")
+        FileTemplateUtil.createFromTemplate(
+            /* template = */ template,
+            /* fileName = */ "activity_$moduleName",
+            /* props = */ defaultProperties,
+            /* directory = */ dir
+        )
+    }
+
+    private fun createAndroidManifestFromTemplate(
+        project: Project,
+        moduleName: String,
+        dir: PsiDirectory,
+        pkg: String
+    ) {
+        val template = FileTemplateManager.getInstance(project).getTemplate("AndroidManifest.xml")
+        FileTemplateUtil.createFromTemplate(
+            /* template = */ template,
+            /* fileName = */ "AndroidManifest",
+            /* props = */ defaultProperties,
+            /* directory = */ dir
+        )
+    }
+
+    private fun createResDirStructure(psiDirectory: PsiDirectory, moduleName: @NlsSafe String, pkg: @NlsSafe String) {
         psiDirectory.createSubdirectory("res").apply {
             createSubdirectory("drawable")
             createSubdirectory("layout").apply {
-                TODO("Create layout files from Template")
+                createActivityLayoutFromTemplate(project, moduleName, this, pkg)
             }
             createSubdirectory("values").apply {
-                TODO("Create strings, colors etc. files from Template")
+//                TODO("Create strings, colors etc. files from Template")
             }
         }
     }
 
-    private fun createPkgStructure(pkg: @NlsSafe String, dir: PsiDirectory) {
+    private fun createPkgStructure(pkg: @NlsSafe String, dir: PsiDirectory): PsiDirectory {
         var subDir = dir
         pkg.split('.').forEach {
             subDir = subDir.createSubdirectory(it)
         }
+        return subDir
     }
 }
 

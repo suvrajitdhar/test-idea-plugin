@@ -116,6 +116,8 @@ tasks {
 dependencies {
     implementation(kotlin("stdlib-jdk8"))
 
+    implementation("org.apache.commons:commons-text:1.10.0")
+
     implementation("org.freemarker:freemarker:2.3.31")
 
 }
