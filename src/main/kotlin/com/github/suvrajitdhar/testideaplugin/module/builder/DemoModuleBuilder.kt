@@ -1,32 +1,39 @@
 package com.github.suvrajitdhar.testideaplugin.module.builder
 
-import com.github.suvrajitdhar.testideaplugin.module.DemoModuleType
+import com.android.tools.idea.npw.ideahost.IdeaWizardDelegate
+import com.github.suvrajitdhar.testideaplugin.module.CustomModuleType
+import com.google.common.base.Preconditions
+import com.intellij.ide.util.newProjectWizard.WizardDelegate
 import com.intellij.ide.util.projectWizard.ModuleBuilder
 import com.intellij.ide.util.projectWizard.ModuleWizardStep
 import com.intellij.ide.util.projectWizard.WizardContext
+import com.intellij.ide.wizard.AbstractWizard
 import com.intellij.openapi.Disposable
-import com.intellij.openapi.diagnostic.logger
+import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.module.ModifiableModuleModel
 import com.intellij.openapi.module.Module
-import com.intellij.openapi.module.ModuleType
-import com.intellij.openapi.projectRoots.SdkTypeId
+import com.intellij.openapi.project.Project
 import com.intellij.openapi.roots.ModifiableRootModel
 
-class DemoModuleBuilder: ModuleBuilder() {
+class DemoModuleBuilder : ModuleBuilder() {
 
-    override fun getModuleType(): ModuleType<*> = DemoModuleType.getInstance()
 
-    override fun setupRootModel(modifiableRootModel: ModifiableRootModel) {
+    override fun setupRootModel(model: ModifiableRootModel) {
+
+    }
+    override fun getModuleType(): CustomModuleType {
+        return CustomModuleType.getInstance()
     }
 
-    override fun getCustomOptionsStep(context: WizardContext?, parentDisposable: Disposable?): ModuleWizardStep =
-        DemoModuleWizardStep()
+    override fun getCustomOptionsStep(ctx: WizardContext, parentDisposable: Disposable): ModuleWizardStep? {
 
-    override fun isSuitableSdkType(sdkType: SdkTypeId?): Boolean {
-        logger<DemoModuleBuilder>().info(">>>>>>>>> SDK Type in use is $sdkType")
-        return super.isSuitableSdkType(sdkType)
+
+        return DemoModuleWizardStep(ctx.project )
     }
 
-    override fun setProjectType(module: Module?) {
-        super.setProjectType(module)
+    override fun createModule(moduleModel: ModifiableModuleModel): Module {
+        return super.createModule(moduleModel)
+
     }
+
 }

@@ -17,4 +17,6 @@ class MyLibRootFileTemplateHandler(): DefaultCreateFromTemplateHandler() {
             props[FileTemplate.ATTRIBUTE_NAME] = name.quoteIfNeeded()
         }
     }
+
+
 }

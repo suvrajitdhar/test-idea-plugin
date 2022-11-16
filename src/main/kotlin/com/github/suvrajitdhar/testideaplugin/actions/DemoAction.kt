@@ -1,5 +1,6 @@
 package com.github.suvrajitdhar.testideaplugin.actions
 
+import com.android.tools.idea.npw.model.ProjectSyncInvoker
 import com.intellij.icons.AllIcons
 import com.intellij.ide.fileTemplates.FileTemplate
 import com.intellij.ide.fileTemplates.FileTemplateManager
@@ -79,6 +80,7 @@ open class DemoAction : AnAction() {
             ) ?: moduleName
 
             val name = CaseUtils.toCamelCase(moduleName, true, '-', '_')
+           // val name = moduleName
             defaultProperties = Properties().apply {
                 setProperty(FileTemplate.ATTRIBUTE_PACKAGE_NAME, pkg)
                 setProperty("MyLib", name)
@@ -92,80 +94,94 @@ open class DemoAction : AnAction() {
         }
     }
 
-    private fun createModule(
+    fun createModule(
+        project: Project,
+        moduleName: @NlsSafe String = "testlib",
+        dir: PsiDirectory,
+        pkg: @NlsSafe String
+    ) {
+
+        val absolutePath = "${project.basePath}/$moduleName"
+            defaultProperties = Properties().apply {
+                setProperty(FileTemplate.ATTRIBUTE_PACKAGE_NAME, pkg)
+                setProperty("MyLib", moduleName)
+                setProperty("myLib", moduleName)
+                setProperty("namespace", moduleName)
+
+        }
+
+        val props = Properties(defaultProperties).apply {
+            setProperty(FileTemplate.ATTRIBUTE_FILE_PATH, absolutePath)
+        }
+        val moduleDir = dir.createSubdirectory(moduleName)
+
+        val template = FileTemplateManager.getInstance(project).getTemplate("MyLibModule.gradle")
+        val psiElement = FileTemplateUtil.createFromTemplate(
+            /* template = */ template,
+            /* fileName = */ "build.gradle",
+            /* props = */ props,
+            /* directory = */ moduleDir
+        )
+
+        moduleDir.createSubdirectory("libs")
+        moduleDir.createSubdirectory("src").apply {
+            createSubdirectory("androidTest").apply {
+//                    createPkgStructure(pkg, createSubdirectory("java"))
+                createPkgStructure(pkg, createSubdirectory("kotlin"))
+            }
+            createSubdirectory("test").apply {
+//                    createPkgStructure(pkg, createSubdirectory("java"))
+                createPkgStructure(pkg, createSubdirectory("kotlin"))
+            }
+            createSubdirectory("main").apply {
+//                    createPkgStructure(pkg, createSubdirectory("java"))
+                val childDir = createPkgStructure(pkg, createSubdirectory("kotlin"))
+                createResDirStructure(this, moduleName, pkg)
+                createAndroidManifestFromTemplate(project, moduleName, this, pkg)
+                createActivityCodeFromTemplate(project, moduleName, childDir, pkg)
+            }
+        }
+
+        val psiFile = psiElement.containingFile
+//            val pointer = SmartPointerManager.getInstance(project).createSmartPsiElementPointer<PsiFile>(psiFile)
+        val liveTemplateDefaultValues = emptyMap<String, String>()
+
+        psiFile.virtualFile?.let { virtualFile ->
+            if (template.isLiveTemplateEnabled) {
+                CreateFromTemplateActionBase.startLiveTemplate(psiFile, liveTemplateDefaultValues)
+            } else {
+                FileEditorManager.getInstance(project).openFile(virtualFile, true)
+            }
+        }
+
+        dir.files.filter {
+            it.name in arrayOf("settings.gradle", "settings.gradle.kt")
+        }.forEach {
+            if (it.isWritable) {
+                val fileName = "${project.basePath}/${it.name}"
+                val contentToWrite = "\r\ninclude ':${moduleName}'"
+                Files.write(
+                    Paths.get(fileName),
+                    contentToWrite.toByteArray(Charset.defaultCharset()),
+                    StandardOpenOption.APPEND
+                )
+            }
+        }
+
+
+
+        ProjectSyncInvoker.DefaultProjectSyncInvoker().syncProject(project)
+        project.save()
+
+
+    }
+
+    private fun createActivityCodeFromTemplate(
         project: Project,
         moduleName: @NlsSafe String,
         dir: PsiDirectory,
         pkg: @NlsSafe String
     ) {
-        try {
-            val absolutePath = "${project.basePath}/$moduleName"
-
-
-            val props = Properties(defaultProperties).apply {
-                setProperty(FileTemplate.ATTRIBUTE_FILE_PATH, absolutePath)
-            }
-            val moduleDir = dir.createSubdirectory(moduleName)
-
-            val template = FileTemplateManager.getInstance(project).getTemplate("MyLibModule.gradle")
-            val psiElement = FileTemplateUtil.createFromTemplate(
-                /* template = */ template,
-                /* fileName = */ "build.gradle",
-                /* props = */ props,
-                /* directory = */ moduleDir
-            )
-
-            moduleDir.createSubdirectory("libs")
-            moduleDir.createSubdirectory("src").apply {
-                createSubdirectory("androidTest").apply {
-//                    createPkgStructure(pkg, createSubdirectory("java"))
-                    createPkgStructure(pkg, createSubdirectory("kotlin"))
-                }
-                createSubdirectory("test").apply {
-//                    createPkgStructure(pkg, createSubdirectory("java"))
-                    createPkgStructure(pkg, createSubdirectory("kotlin"))
-                }
-                createSubdirectory("main").apply {
-//                    createPkgStructure(pkg, createSubdirectory("java"))
-                    val childDir = createPkgStructure(pkg, createSubdirectory("kotlin"))
-                    createResDirStructure(this, moduleName, pkg)
-                    createAndroidManifestFromTemplate(project, moduleName, this, pkg)
-                    createActivityCodeFromTemplate(project, moduleName, childDir, pkg)
-                }
-            }
-
-            val psiFile = psiElement.containingFile
-//            val pointer = SmartPointerManager.getInstance(project).createSmartPsiElementPointer<PsiFile>(psiFile)
-            val liveTemplateDefaultValues = emptyMap<String, String>()
-
-            psiFile.virtualFile?.let { virtualFile ->
-                if (template.isLiveTemplateEnabled) {
-                    CreateFromTemplateActionBase.startLiveTemplate(psiFile, liveTemplateDefaultValues)
-                } else {
-                    FileEditorManager.getInstance(project).openFile(virtualFile, true)
-                }
-            }
-
-            dir.files.filter {
-                it.name in arrayOf("settings.gradle", "settings.gradle.kt")
-            }.forEach {
-                if (it.isWritable) {
-                    val fileName = "${project.basePath}/${it.name}"
-                    val contentToWrite = "\r\ninclude ':${moduleName}'"
-                    Files.write(
-                        Paths.get(fileName),
-                        contentToWrite.toByteArray(Charset.defaultCharset()),
-                        StandardOpenOption.APPEND
-                    )
-                }
-            }
-
-        } catch (t: Throwable) {
-            println(t)
-        }
-    }
-
-    private fun createActivityCodeFromTemplate(project: Project, moduleName: @NlsSafe String, dir: PsiDirectory, pkg: @NlsSafe String) {
         val template = FileTemplateManager.getInstance(project).getTemplate("MyLibActivity.kt")
         val name = defaultProperties.getProperty("MyLib")
         FileTemplateUtil.createFromTemplate(
@@ -176,7 +192,12 @@ open class DemoAction : AnAction() {
         )
     }
 
-    private fun createActivityLayoutFromTemplate(project: Project, moduleName: @NlsSafe String, dir: PsiDirectory, pkg: @NlsSafe String) {
+    private fun createActivityLayoutFromTemplate(
+        project: Project,
+        moduleName: @NlsSafe String,
+        dir: PsiDirectory,
+        pkg: @NlsSafe String
+    ) {
         val template = FileTemplateManager.getInstance(project).getTemplate("activity_mylib.xml")
         FileTemplateUtil.createFromTemplate(
             /* template = */ template,

@@ -1,37 +1,36 @@
 package com.github.suvrajitdhar.testideaplugin.module.builder
 
-import androidx.compose.foundation.layout.*
-import androidx.compose.material.Surface
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.awt.ComposePanel
-import com.github.suvrajitdhar.testideaplugin.module.ui.compose.Buttons
-import com.github.suvrajitdhar.testideaplugin.module.ui.compose.TextInputs
+
+import com.github.suvrajitdhar.testideaplugin.actions.DemoAction
+import com.github.suvrajitdhar.testideaplugin.ui.MyFrame
 import com.intellij.ide.util.projectWizard.ModuleWizardStep
+import com.intellij.openapi.command.WriteCommandAction
+import com.intellij.openapi.project.Project
+import com.intellij.psi.impl.file.PsiDirectoryFactory
 import javax.swing.JComponent
 
-class DemoModuleWizardStep: ModuleWizardStep() {
 
-    override fun getComponent(): JComponent =
-        ComposePanel().apply {
-            setBounds(0, 0, 800, 600)
-            setContent {
-                    Surface(modifier = Modifier.fillMaxSize()) {
-                        Row {
-                            Column(
-                                modifier = Modifier.fillMaxHeight().weight(1f)
-                            ) {
-                                TextInputs()
-                                Buttons()
-                            }
-                            Box(
-                                modifier = Modifier.fillMaxHeight().weight(1f)
-                            )
-                    }
-                }
-            }
-        }
+class DemoModuleWizardStep(val project: Project?) : ModuleWizardStep(){
+
+
+    var f = MyFrame(project)
+
+
+    override fun getComponent(): JComponent = f.contentPane
 
     override fun updateDataModel() {
-        TODO("Not yet implemented")
+
     }
+
+    override fun onWizardFinished() {
+        super.onWizardFinished()
+        WriteCommandAction.runWriteCommandAction(project) {
+            val dir = PsiDirectoryFactory.getInstance(project).createDirectory(project!!.baseDir)
+
+            DemoAction().createModule(project, f.moduleName.text, dir, f.packageName.text)
+        }
+
+
+    }
+
 }
